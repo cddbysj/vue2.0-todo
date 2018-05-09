@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="description" content="">
+  <meta name="author" content="">
+	<title>todo</title>
+	<style>
+		[v-cloak] {
+			display: none;
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		body {
+			font: 14px Verdana,Arial,Helvetica,sans-serif;
+			color: #777;
+			margin: auto;
+			max-width: 600px;
+			box-sizing: border-box;
+		}
+
+		a {
+			text-decoration: none;
+			color: inherit;
+		}
+
+		ul {
+			margin: 0;
+			padding: 0;
+		}
+
+		.header {
+			font-size: 100px;
+			color: #e9e9e9;
+			padding: 10px 0;
+		}
+
+		.main  {
+			position: relative;
+			margin: 0;
+			padding: 0;
+			list-style: none;
+			box-shadow: 2px 2px 2px rgba(0,0,0,.2), -2px -2px 2px rgba(0,0,0,.2);
+		}
+
+		.main .new-todo {
+			width: 100%;
+			padding: 10px 0 10px 32px;
+			border: none;
+			font-size: 24px;
+			font-style: italic;
+			opacity: .2;
+			box-shadow: inset 0 -1px 1px rgba(0,0,0,.2);
+		}
+
+		.main .todo-list li {
+			display: flex;
+			justify-content: space-between;
+			font-size: 24px;
+			font-weight: 400;
+			font-family: Lucida Console, Courier, monospace;
+			color: #4d4d4d;
+			line-height: 2em;
+			height: 2em;
+			border-bottom: 1px solid #e9e9e9;
+		}
+
+		.main .todo-list .toggle-all {
+			position: absolute;
+			top: 16px;
+		}
+
+		.main .todo-list .todo-text {
+			transition: color .3s;
+		}
+
+		.clear-item, .clear-completed {
+			border: none;
+			background: unset;
+			color: inherit;
+			cursor: pointer;
+			font: inherit;
+		}
+
+		.clear-item {
+			font-size: 30px;
+			color: #999;
+		}
+
+		.clear-item:hover {
+			color: #4d4d4d;
+		}
+
+		.completed {
+			text-decoration: line-through;
+			color: #d9d9d9;
+		}
+
+		.footer {
+			position: relative;
+			padding: 0 4px;
+			height: 40px;
+			line-height: 40px;
+		}
+
+		.footer .todo-count {
+			float: left;
+		}
+
+		.footer .filters {
+			position: absolute;
+			right: 0;
+			left: 0;
+			list-style: none;
+			text-align: center;
+		}
+
+		.footer .clear-completed {
+			float: right;
+			position: absolute;
+			top: 8px;
+			right: 4px;
+			border: 1px solid #ccc;
+			border-radius: 3px;
+			height: 25px;
+			line-height: 25px;
+		}
+
+		.footer .filters li {
+			display: inline;
+			padding: 3px 10px;
+		}
+
+		.footer .filters li a {
+			text-align: center;
+			cursor: pointer;
+		}
+
+		.filter-selected {
+			border: 1px solid #ccc;
+			border-radius: 3px;
+		}
+
+		/*
+		vue transition
+		*/
+		.fade-enter-active, .fade-leave-active {
+			transition: opacity .3s;
+		}
+
+		.fade-enter, .fade-leave-to {
+			opacity: 0;
+		}
+
+		.list-enter-active {
+			transition: all 1s ease;
+		}
+
+		.list-leave-active {
+			transition: all .1s ease;
+		}
+
+		.list-leave-active {
+			position: absolute;
+		}
+
+		.list-enter {
+			opacity: 0;
+			transform: translateX(-30px);
+		}
+
+		.list-leave-to {
+			opacity: 0;
+			transform: translateY(1px);
+		}
+
+		.list-move {
+			transition: all .5s ease;
+		}
+	</style>
+</head>
+<body>
+	<div id="app" v-cloak>
+		<header class="header">{{ title }}</header>
+		<div class="main">
+			<div class="edit">
+				<input type="text"
+					class="new-todo"
+					placeholder="What needs to be done?"
+					v-model="itemText"
+					@keyup.enter="addItem(itemText)">
+			</div>
+			<ul class="todo-list">
+				<input type="checkbox"
+					class="toggle-all"
+					v-model="allCompleted"
+					@click.prevent="toggleAll()">
+				<transition-group name="list">
+					<li
+						v-for="(item,index) in curItems"
+						:key="item.id"
+						@mouseover="itemFocused(item)"
+						@mouseout="itemBlurred(item)">
+						<div>
+							<input type="checkbox"
+								class="toggle-item"
+								@click="toggleItem(item)"
+								v-model="item.isCompleted">
+							<label class="todo-text"
+								:class="{'completed': item.isCompleted}">
+								{{ item.name }}
+							</label>
+						</div>
+						<button class="clear-item"
+							v-show="item.focused"
+							@click="clearItem(index)">
+							×
+						</button>
+					</li>
+				</transition-group>
+			</ul>
+			<div class="footer">
+				<div class="todo-count">
+					<span v-if="itemsActive.length === 1">{{ itemsActive.length }} item left</span>
+					<span v-else-if="itemsActive.length">{{ itemsActive.length }} items left</span>
+					<span v-else>No items left</span>
+				</div>
+				<ul class="filters">
+					<li v-for="filter in filters"
+						:class="{'filter-selected': filter.selected}"
+						:key="filter.id">
+						<a @click.prevent="setFilter(filter)">
+							{{ filter.todoState }}
+						</a>
+					</li>
+				</ul>
+				<transition name="fade">
+					<button class="clear-completed"
+						@click="clearCompleted()"
+						v-show="itemsCompleted.length">
+						Clear Completed
+					</button>
+				</transition>
+			</div>
+		</div>
+	</div>
+	<script src="./lib/vue.min.js"></script>
+	<script>
+		const log = console.log.bind(console)
+		const TODO_STATE = {
+			SHOW_ALL: 'All',
+			SHOW_ACTIVE: 'Active',
+			SHOW_COMPLETED: 'Completed'
+		}
+		const __FILTER__ = [
+			{
+				id: 0,
+				todoState: 'All',
+				selected: true
+			},
+			{
+				id: 1,
+				todoState: 'Active',
+				selected: false
+			},
+			{
+				id: 2,
+				todoState: 'Completed',
+				selected: false
+			}
+		]
+		let id = 0
+		new Vue({
+			el: '#app',
+			data: {
+				title: 'todos',
+				itemText: '',
+				items: [],
+				curItems: [],
+				filters: __FILTER__
+			},
+			mounted() {
+				this.curItems = this.items
+			},
+			methods: {
+				addItem(itemText) {
+					itemText = itemText.trim()
+					if (itemText == '') {
+						this.itemText = ''
+						return
+					}
+					let item = {
+						id: id++,
+						name: itemText,
+						isCompleted: false
+					}
+					this.items.unshift(item)
+					this.itemText = ''
+				},
+				clearItem(index) {
+					this.items.splice(index, 1)
+				},
+				clearCompleted() {
+					this.items = this.items.filter(v => !v.isCompleted)
+					this.curItems = this.items
+				},
+				toggleItem(item) {
+					item.isCompleted = !item.isCompleted
+				},
+				toggleAll() {
+					if (!this.items.length) return
+					let flag = this.allCompleted
+					this.items.forEach(item => {
+						item.isCompleted = !flag
+					})
+				},
+				setFilter(filter) {
+					// Give selected filter a rounded border
+					this.filters.forEach(v => {
+						v.selected = v === filter
+					})
+
+					if (filter.todoState === TODO_STATE.SHOW_ACTIVE) {
+						this.curItems = this.itemsActive
+					} else if (filter.todoState === TODO_STATE.SHOW_COMPLETED) {
+						this.curItems = this.itemsCompleted
+					} else {
+						this.curItems = this.items
+					}
+				},
+				itemFocused(item) {
+					this.$set(item, 'focused', true)
+				},
+				itemBlurred(item) {
+					this.$set(item, 'focused', false)
+				}
+			},
+			computed: {
+				itemsActive() {
+					return this.items.filter(item => !item.isCompleted)
+				},
+				itemsCompleted() {
+					return this.items.filter(item => item.isCompleted)
+				},
+				allCompleted() {
+					return this.itemsCompleted.length > 0 && this.itemsCompleted.length === this.items.length
+				}
+			}
+		})
+	</script>
+</body>
+</html>
